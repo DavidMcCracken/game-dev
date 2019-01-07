@@ -9,8 +9,19 @@ Map* map;
 SDL_Renderer* Game::renderer = nullptr;
 SDL_Event Game::event;
 Manager manager;
+std::vector<ColliderComponent*> Game::colliders;
+
 auto& player(manager.addEntity());
 auto& wall(manager.addEntity());
+
+const char* mapFile = "assets/originalTileSet_ss.png";
+
+enum groupLabels : std::size_t {
+	groupMap,
+	groupPlayers,
+	groupEnemies,
+	groupColliders
+};
 
 Game::Game()
 {}
@@ -40,14 +51,13 @@ void Game::init(const char* title, int width, int height, bool fullscreen)
 	}
 
 	map = new Map();
-	player.addComponent<TransformComponent>(2);
-	player.addComponent<SpriteComponent>("assets/sprite_000.png");
+
+	Map::loadMap("assets/originalmap.map", 25, 20);
+	player.addComponent<TransformComponent>(3);
+	player.addComponent<SpriteComponent>("assets/player_anims.png", true);
 	player.addComponent<KeyboardController>();
 	player.addComponent<ColliderComponent>("player");
-	
-	wall.addComponent<TransformComponent>(300.0f, 300.0f, 300, 20, 1);
-	wall.addComponent<SpriteComponent>("assets/dirt.png");
-	wall.addComponent<ColliderComponent>("wall");
+	player.addGroup(groupPlayers);
 }
 
 void Game::handleEvents()
@@ -70,18 +80,29 @@ void Game::update()
 {
 	manager.refresh();
 	manager.update();
-	if (Collision::AABB(player.getComponent<ColliderComponent>().collider, 
-		wall.getComponent<ColliderComponent>().collider)){
-		std::cout << "wall hit" << std::endl;
+	for (auto cc : colliders) {
+		(Collision::AABB(player.getComponent<ColliderComponent>(), *cc));
 		
 }
 }
 
+auto& tiles(manager.getGroup(groupMap));
+auto& players(manager.getGroup(groupPlayers));
+auto& enemies(manager.getGroup(groupEnemies));
+
+
 void Game::render()
 {
 	SDL_RenderClear(renderer);
-	map->drawMap();
-	manager.draw();
+	for (auto& t : tiles) {
+		t->draw();
+	}
+	for (auto& p : players) {
+		p->draw();
+	}
+	for (auto& e : enemies) {
+		e->draw();
+	}
 	SDL_RenderPresent(renderer);
 }
 
@@ -90,4 +111,9 @@ void Game::clean()
 	SDL_DestroyWindow(window);
 	SDL_DestroyRenderer(renderer);
 	SDL_Quit();
+}
+void Game::AddTile(int srcX, int srcY, int xpos, int ypos) {
+	auto& tile(manager.addEntity());
+	tile.addComponent<TileComponent>(srcX, srcY, xpos, ypos, mapFile);
+	tile.addGroup(groupMap);
 }
